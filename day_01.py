@@ -33,7 +33,7 @@ class TestDayOne(unittest.TestCase):
         self.assertEqual(calculate_additional_fuel(100756), 50346)
 
 
-def calculate_part_one():
+def solve_part_one():
     lines = util.read_lines('day_01_input.txt')
 
     total_fuel = 0
@@ -45,7 +45,7 @@ def calculate_part_one():
     return total_fuel
 
 
-def calculate_part_two():
+def solve_part_two():
     lines = util.read_lines('day_01_input.txt')
 
     total_fuel = 0
@@ -56,8 +56,9 @@ def calculate_part_two():
 
     return total_fuel
 
-part_one = calculate_part_one()
-part_two = calculate_part_two()
+
+part_one = solve_part_one()
+part_two = solve_part_two()
 
 print('Part 1', part_one)
 print('Part 2', part_two)
