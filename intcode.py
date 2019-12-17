@@ -9,12 +9,8 @@ class Intcode:
             self.memory[2] = verb
 
     def execute(self):
-        init_instruction = self.memory[0]
-        first_opcode = int(init_instruction[-2:])
-        initial_step_size = self.__step_size(first_opcode)
-
         def take_chunk(start=0):
-            instruction = self.memory[start]
+            instruction = str(self.memory[start])
             opcode = int(instruction[-2:])
             step_size = self.__step_size(opcode)
 
@@ -24,7 +20,7 @@ class Intcode:
                 return self.memory
 
             if opcode == 99:
-                return self.memory, ''.join(self.output)
+                return self.output
 
             if opcode == 1:
                 self._execute_sum(chunk)
@@ -35,43 +31,45 @@ class Intcode:
             elif opcode == 4:
                 self._execute_output(chunk)
 
-            if instruction.endswith('4'):
-                print(chunk)
-
             return take_chunk(start=start + step_size)
 
         return take_chunk()
 
     def _execute_sum(self, chunk):
         instruction = chunk[0]
-        param_one = int(chunk[1])
-        param_two = int(chunk[2])
-        destination = int(chunk[3])
+        param_one = chunk[1]
+        param_two = chunk[2]
+        destination = chunk[3]
         p1_mode, p2_mode, _ = self._get_param_modes(instruction)
 
         value_one = param_one if p1_mode == 'immediate' else self.memory[param_one]
         value_two = param_two if p2_mode == 'immediate' else self.memory[param_two]
-        self.memory[destination] = str(int(value_one) + int(value_two))
+        self.memory[destination] = int(value_one) + int(value_two)
 
     def _execute_multiply(self, chunk):
         instruction = chunk[0]
-        param_one = int(chunk[1])
-        param_two = int(chunk[2])
-        destination = int(chunk[3])
+        param_one = chunk[1]
+        param_two = chunk[2]
+        destination = chunk[3]
         p1_mode, p2_mode, _ = self._get_param_modes(instruction)
 
         value_one = param_one if p1_mode == 'immediate' else self.memory[param_one]
         value_two = param_two if p2_mode == 'immediate' else self.memory[param_two]
-        self.memory[destination] = str(int(value_one) * int(value_two))
+        self.memory[destination] = int(value_one) * int(value_two)
 
     def _execute_input(self, chunk):
-        param_one = int(chunk[1])
-        next_input = self.input_list.pop(0)
+        param_one = chunk[1]
+
+        try:
+            next_input = self.input_list.pop(0)
+        except IndexError:
+            next_input = input('Provide input: ')
+
         self.memory[param_one] = next_input
 
     def _execute_output(self, chunk):
         instruction = chunk[0]
-        param_one = int(chunk[1])
+        param_one = chunk[1]
         p1_mode, _, _ = self._get_param_modes(instruction)
 
         self.output.append(
@@ -89,7 +87,7 @@ class Intcode:
          A - mode of 3rd parameter,  0 == position mode,
                                           omitted due to being a leading zero
         """
-
+        instruction = str(instruction)
         param_one = self.__read_parameter(instruction[-3:-2])
         param_two = self.__read_parameter(instruction[-4:-3])
         param_three = self.__read_parameter(instruction[-5:-4])

@@ -12,5 +12,5 @@ def read_lines(file):
 def get_list_from_file(file):
     with open(file) as f:
         content = f.read()
-        lst = content.split(',')
+        lst = [int(item) for item in content.split(',')]
         return lst
