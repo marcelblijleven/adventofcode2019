@@ -1,3 +1,9 @@
+import os
+
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
 def read_lines(file):
     with open(file) as f:
         return f.readlines()
@@ -6,5 +12,5 @@ def read_lines(file):
 def get_list_from_file(file):
     with open(file) as f:
         content = f.read()
-        lst = [int(num) for num in content.split(',')]
+        lst = content.split(',')
         return lst
