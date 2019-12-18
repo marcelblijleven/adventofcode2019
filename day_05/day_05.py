@@ -8,9 +8,20 @@ MEMORY = get_list_from_file(INPUT_FILE)
 
 
 def solve_part_one():
-    intcode = Intcode(MEMORY)
+    memory = MEMORY.copy()
+    intcode = Intcode(memory, inputs=[1])
+    output = intcode.execute()
+    print(output)
+
+
+def solve_part_two():
+    memory = MEMORY.copy()
+    intcode = Intcode(memory, inputs=[5])
     output = intcode.execute()
     print(output)
 
 
 solve_part_one()
+solve_part_two()
+
+

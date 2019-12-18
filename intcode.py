@@ -1,7 +1,7 @@
 class Intcode:
-    def __init__(self, memory, noun=None, verb=None, input_list=[]):
+    def __init__(self, memory, noun=None, verb=None, inputs=[]):
         self.memory = memory
-        self.input_list = input_list
+        self.inputs = inputs
         self.output = []
 
         if noun is not None and verb is not None:
@@ -9,74 +9,81 @@ class Intcode:
             self.memory[2] = verb
 
     def execute(self):
-        def take_chunk(start=0):
-            instruction = str(self.memory[start])
+        cursor = 0
+
+        while cursor < len(self.memory):
+            instruction = str(self.memory[cursor])
             opcode = int(instruction[-2:])
-            step_size = self.__step_size(opcode)
+            p1_mode, p2_mode, p3_mode = self._get_param_modes(instruction)
 
-            try:
-                chunk = self.memory[start: start + step_size]
-            except IndexError:
-                return self.memory
+            if opcode in [1, 2, 7, 8]:
+                chunk = self.memory[cursor:cursor + 4]
+                parameter_one = chunk[1]
+                parameter_two = chunk[2]
+                destination = chunk[3]
+                value_one = parameter_one if p1_mode == 'immediate' else self.memory[parameter_one]
+                value_two = parameter_two if p2_mode == 'immediate' else self.memory[parameter_two]
 
-            if opcode == 99:
-                return self.output
-
-            if opcode == 1:
-                self._execute_sum(chunk)
+                if opcode == 1:
+                    self.memory[destination] = value_one + value_two
+                elif opcode == 2:
+                    self.memory[destination] = value_one * value_two
+                elif opcode == 7:
+                    output = 1 if value_one < value_two else 0
+                    self.memory[destination] = output
+                elif opcode == 8:
+                    output = 1 if value_one == value_two else 0
+                    self.memory[destination] = output
+                else:
+                    raise ValueError(f'Incorrect opcode "{opcode}"')
+                cursor += 4
             elif opcode == 2:
-                self._execute_multiply(chunk)
+                chunk = self.memory[cursor:cursor + 4]
+                parameter_one = chunk[1]
+                parameter_two = chunk[2]
+                destination = chunk[3]
+                value_one = parameter_one if p1_mode == 'immediate' else self.memory[parameter_one]
+                value_two = parameter_two if p2_mode == 'immediate' else self.memory[parameter_two]
+                self.memory[destination] = value_one * value_two
+                cursor += 4
             elif opcode == 3:
-                self._execute_input(chunk)
+                chunk = self.memory[cursor:cursor + 2]
+                try:
+                    next_input = self.inputs.pop(0)
+                except IndexError:
+                    next_input = input('Provide input: ')
+
+                self.memory[chunk[1]] = next_input
+                cursor += 2
             elif opcode == 4:
-                self._execute_output(chunk)
+                chunk = self.memory[cursor:cursor + 2]
+                param = chunk[1]
+                self.output.append(param if p1_mode == 'immediate' else self.memory[param])
+                cursor += 2
+            elif opcode in [5, 6]:
+                chunk = self.memory[cursor:cursor + 3]
+                param_one = chunk[1]
+                param_two = chunk[2]
+                value_one = param_one if p1_mode == 'immediate' else self.memory[param_one]
+                value_two = param_two if p2_mode == 'immediate' else self.memory[param_two]
 
-            return take_chunk(start=start + step_size)
+                if opcode == 5 and value_one != 0:
+                    # Jump to position
+                    cursor = value_two
+                elif opcode == 6 and value_one == 0:
+                    # Jump to position
+                    cursor = value_two
+                else:
+                    cursor += 3
+            elif opcode == 99:
+                return self.output
+            else:
+                raise ValueError(f'Unknown instruction at cursor {cursor}: {instruction}')
 
-        return take_chunk()
+        return self.output
 
-    def _execute_sum(self, chunk):
-        instruction = chunk[0]
-        param_one = chunk[1]
-        param_two = chunk[2]
-        destination = chunk[3]
-        p1_mode, p2_mode, _ = self._get_param_modes(instruction)
-
-        value_one = param_one if p1_mode == 'immediate' else self.memory[param_one]
-        value_two = param_two if p2_mode == 'immediate' else self.memory[param_two]
-        self.memory[destination] = int(value_one) + int(value_two)
-
-    def _execute_multiply(self, chunk):
-        instruction = chunk[0]
-        param_one = chunk[1]
-        param_two = chunk[2]
-        destination = chunk[3]
-        p1_mode, p2_mode, _ = self._get_param_modes(instruction)
-
-        value_one = param_one if p1_mode == 'immediate' else self.memory[param_one]
-        value_two = param_two if p2_mode == 'immediate' else self.memory[param_two]
-        self.memory[destination] = int(value_one) * int(value_two)
-
-    def _execute_input(self, chunk):
-        param_one = chunk[1]
-
-        try:
-            next_input = self.input_list.pop(0)
-        except IndexError:
-            next_input = input('Provide input: ')
-
-        self.memory[param_one] = next_input
-
-    def _execute_output(self, chunk):
-        instruction = chunk[0]
-        param_one = chunk[1]
-        p1_mode, _, _ = self._get_param_modes(instruction)
-
-        self.output.append(
-            str(param_one) if p1_mode == 'immediate' else self.memory[param_one]
-        )
-
-    def _get_param_modes(self, instruction):
+    @staticmethod
+    def _get_param_modes(instruction):
         """
         ABCDE
          1002
@@ -87,29 +94,16 @@ class Intcode:
          A - mode of 3rd parameter,  0 == position mode,
                                           omitted due to being a leading zero
         """
-        instruction = str(instruction)
-        param_one = self.__read_parameter(instruction[-3:-2])
-        param_two = self.__read_parameter(instruction[-4:-3])
-        param_three = self.__read_parameter(instruction[-5:-4])
+        def read_parameter(parameter):
+            try:
+                if int(parameter) == 1:
+                    return 'immediate'
+            except ValueError:
+                pass  # Parameter not present in instruction
+
+            return 'position'
+
+        param_one = read_parameter(instruction[-3:-2])
+        param_two = read_parameter(instruction[-4:-3])
+        param_three = read_parameter(instruction[-5:-4])
         return param_one, param_two, param_three
-
-    @staticmethod
-    def __read_parameter(parameter):
-        try:
-            if int(parameter) == 1:
-                return 'immediate'
-        except ValueError:
-            pass  # Parameter not present in opcode
-
-        return 'position'
-
-    @staticmethod
-    def __step_size(opcode):
-        if opcode in [1, 2]:
-            return 4
-        elif opcode in [3, 4]:
-            return 2
-        elif opcode == 99:
-            return 0  # End of program
-
-        raise ValueError('Cannot calculate step size for opcode', opcode)
