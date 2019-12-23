@@ -1,84 +1,95 @@
 class Intcode:
-    def __init__(self, memory, noun=None, verb=None, inputs=[]):
+    def __init__(self, memory, inputs, noun=None, verb=None):
+        self.cursor = 0
         self.memory = memory
         self.inputs = inputs
-        self.output = []
+        self.output = None
+        self.halted = False
 
         if noun is not None and verb is not None:
             self.memory[1] = noun
             self.memory[2] = verb
 
-    def execute(self):
-        cursor = 0
+    def get_parameter_value(self, param, mode):
+        return param if mode == 1 else self.memory[param]
 
-        while cursor < len(self.memory):
-            instruction = str(self.memory[cursor])
-            opcode = int(instruction[-2:])
-            p1_mode, p2_mode, p3_mode = self._get_param_modes(instruction)
+    def sum(self, value_one, value_two, destination):
+        # opcode 1
+        self.memory[destination] = value_one + value_two
+
+    def multiply(self, value_one, value_two, destination):
+        # opcode 2
+        self.memory[destination] = value_one * value_two
+
+    def process_input(self, param):
+        # opcode 3
+        self.memory[param] = self.inputs.pop(0)
+
+    def process_output(self, value):
+        # opcode 4
+        self.output = value
+
+    def jump_if_true(self, value_one, value_two):
+        # opcode 5
+        self.cursor = value_two if value_one != 0 else self.cursor + 3
+
+    def jump_if_false(self, value_one, value_two):
+        # opcode 6
+        self.cursor = value_two if value_one == 0 else self.cursor + 3
+
+    def less_than(self, value_one, value_two, destination):
+        # opcode 7
+        self.memory[destination] = 1 if value_one < value_two else 0
+
+    def equal(self, value_one, value_two, destination):
+        # opcode 8
+        self.memory[destination] = 1 if value_one == value_two else 0
+
+    def execute(self):
+        while self.cursor < len(self.memory) and not self.halted:
+            opcode, p1mode, p2mode, p3mode = process_instruction(
+                self.memory[self.cursor]
+            )
 
             if opcode in [1, 2, 7, 8]:
-                chunk = self.memory[cursor:cursor + 4]
-                parameter_one = chunk[1]
-                parameter_two = chunk[2]
+                chunk = self.memory[self.cursor:self.cursor + 4]
+                value_one = self.get_parameter_value(chunk[1], p1mode)
+                value_two = self.get_parameter_value(chunk[2], p2mode)
                 destination = chunk[3]
-                value_one = parameter_one if p1_mode == 'immediate' else self.memory[parameter_one]
-                value_two = parameter_two if p2_mode == 'immediate' else self.memory[parameter_two]
 
                 if opcode == 1:
-                    self.memory[destination] = value_one + value_two
+                    self.sum(value_one, value_two, destination)
                 elif opcode == 2:
-                    self.memory[destination] = value_one * value_two
+                    self.multiply(value_one, value_two, destination)
                 elif opcode == 7:
-                    output = 1 if value_one < value_two else 0
-                    self.memory[destination] = output
+                    self.less_than(value_one, value_two, destination)
                 elif opcode == 8:
-                    output = 1 if value_one == value_two else 0
-                    self.memory[destination] = output
-                else:
-                    raise ValueError(f'Incorrect opcode "{opcode}"')
-                cursor += 4
-            elif opcode == 2:
-                chunk = self.memory[cursor:cursor + 4]
-                parameter_one = chunk[1]
-                parameter_two = chunk[2]
-                destination = chunk[3]
-                value_one = parameter_one if p1_mode == 'immediate' else self.memory[parameter_one]
-                value_two = parameter_two if p2_mode == 'immediate' else self.memory[parameter_two]
-                self.memory[destination] = value_one * value_two
-                cursor += 4
-            elif opcode == 3:
-                chunk = self.memory[cursor:cursor + 2]
-                try:
-                    next_input = self.inputs.pop(0)
-                except IndexError:
-                    next_input = input('Provide input: ')
+                    self.equal(value_one, value_two, destination)
 
-                self.memory[chunk[1]] = next_input
-                cursor += 2
-            elif opcode == 4:
-                chunk = self.memory[cursor:cursor + 2]
-                param = chunk[1]
-                self.output.append(param if p1_mode == 'immediate' else self.memory[param])
-                cursor += 2
+                self.cursor += 4
+            elif opcode in [3, 4]:
+                chunk = self.memory[self.cursor:self.cursor + 2]
+                if opcode == 3:
+                    self.process_input(chunk[1])
+                elif opcode == 4:
+                    value = self.get_parameter_value(chunk[1], p1mode)
+                    self.process_output(value)
+
+                self.cursor += 2
             elif opcode in [5, 6]:
-                chunk = self.memory[cursor:cursor + 3]
-                param_one = chunk[1]
-                param_two = chunk[2]
-                value_one = param_one if p1_mode == 'immediate' else self.memory[param_one]
-                value_two = param_two if p2_mode == 'immediate' else self.memory[param_two]
+                chunk = self.memory[self.cursor:self.cursor + 3]
+                value_one = self.get_parameter_value(chunk[1], p1mode)
+                value_two = self.get_parameter_value(chunk[2], p2mode)
 
-                if opcode == 5 and value_one != 0:
-                    # Jump to position
-                    cursor = value_two
-                elif opcode == 6 and value_one == 0:
-                    # Jump to position
-                    cursor = value_two
-                else:
-                    cursor += 3
+                if opcode == 5:
+                    self.jump_if_true(value_one, value_two)
+                elif opcode == 6:
+                    self.jump_if_false(value_one, value_two)
             elif opcode == 99:
+                self.halted = True
                 return self.output
             else:
-                raise ValueError(f'Unknown instruction at cursor {cursor}: {instruction}')
+                raise ValueError(f'Unknown opcode {opcode}')
 
         return self.output
 
@@ -107,3 +118,19 @@ class Intcode:
         param_two = read_parameter(instruction[-4:-3])
         param_three = read_parameter(instruction[-5:-4])
         return param_one, param_two, param_three
+
+
+def process_instruction(instruction):
+    """
+    position 0 is parameter 3
+    position 1 is parameter 2
+    position 2 is parameter 1
+    opcode starts at position 3
+    returns: opcode, pmode1, pmode2, pmode3
+    """
+    # Make instruction 5 characters long, pad left with 0
+    s_instruction = f'{instruction:05}'
+
+    return (
+        int(s_instruction[3:]), int(s_instruction[2]),
+        int(s_instruction[1]), int(s_instruction[0]))

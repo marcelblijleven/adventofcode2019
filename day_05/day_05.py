@@ -23,5 +23,3 @@ def solve_part_two():
 
 solve_part_one()
 solve_part_two()
-
-
