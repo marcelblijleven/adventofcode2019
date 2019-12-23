@@ -1,7 +1,7 @@
 class Intcode:
     def __init__(self, memory, inputs, noun=None, verb=None):
         self.cursor = 0
-        self.memory = memory
+        self.memory = memory[:]
         self.inputs = inputs
         self.output = None
         self.halted = False
@@ -23,7 +23,12 @@ class Intcode:
 
     def process_input(self, param):
         # opcode 3
-        self.memory[param] = self.inputs.pop(0)
+        try:
+            self.memory[param] = self.inputs.pop(0)
+            return True
+        except IndexError:
+            # Allow for early exit by returning False when input list is empty
+            return False
 
     def process_output(self, value):
         # opcode 4
@@ -45,7 +50,10 @@ class Intcode:
         # opcode 8
         self.memory[destination] = 1 if value_one == value_two else 0
 
-    def execute(self):
+    def execute(self, input_value=None):
+        if input_value is not None:
+            self.inputs.append(input_value)
+
         while self.cursor < len(self.memory) and not self.halted:
             opcode, p1mode, p2mode, p3mode = process_instruction(
                 self.memory[self.cursor]
@@ -70,7 +78,9 @@ class Intcode:
             elif opcode in [3, 4]:
                 chunk = self.memory[self.cursor:self.cursor + 2]
                 if opcode == 3:
-                    self.process_input(chunk[1])
+                    if not self.process_input(chunk[1]):
+                        # Return output if we run out of inputs
+                        return self.output
                 elif opcode == 4:
                     value = self.get_parameter_value(chunk[1], p1mode)
                     self.process_output(value)
