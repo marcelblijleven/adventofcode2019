@@ -18,5 +18,3 @@ def get_list_from_file(file):
     content = read_file(file)
     lst = [int(item) for item in content.split(',')]
     return lst
-
-

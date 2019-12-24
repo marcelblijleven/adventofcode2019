@@ -1,17 +1,19 @@
 class Intcode:
-    def __init__(self, memory, inputs, noun=None, verb=None):
+    def __init__(self, memory, inputs):
         self.cursor = 0
         self.memory = memory[:]
         self.inputs = inputs
         self.output = None
         self.halted = False
-
-        if noun is not None and verb is not None:
-            self.memory[1] = noun
-            self.memory[2] = verb
+        self.relative_base = 0
 
     def get_parameter_value(self, param, mode):
-        return param if mode == 1 else self.memory[param]
+        if mode == 1:
+            return param
+        elif mode == 2:
+            return self.memory[param + self.relative_base]
+
+        return self.memory[param]
 
     def sum(self, value_one, value_two, destination):
         # opcode 1
@@ -50,6 +52,10 @@ class Intcode:
         # opcode 8
         self.memory[destination] = 1 if value_one == value_two else 0
 
+    def update_relative_base(self, value):
+        # opcode 9
+        self.relative_base = value
+
     def execute(self, input_value=None):
         if input_value is not None:
             self.inputs.append(input_value)
@@ -75,7 +81,7 @@ class Intcode:
                     self.equal(value_one, value_two, destination)
 
                 self.cursor += 4
-            elif opcode in [3, 4]:
+            elif opcode in [3, 4, 9]:
                 chunk = self.memory[self.cursor:self.cursor + 2]
                 if opcode == 3:
                     if not self.process_input(chunk[1]):
@@ -84,7 +90,9 @@ class Intcode:
                 elif opcode == 4:
                     value = self.get_parameter_value(chunk[1], p1mode)
                     self.process_output(value)
-
+                elif opcode == 9:
+                    value = self.get_parameter_value(chunk[1], p1mode)
+                    self.update_relative_base(value)
                 self.cursor += 2
             elif opcode in [5, 6]:
                 chunk = self.memory[self.cursor:self.cursor + 3]
