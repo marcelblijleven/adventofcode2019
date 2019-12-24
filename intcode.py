@@ -1,19 +1,24 @@
 class Intcode:
     def __init__(self, memory, inputs):
         self.cursor = 0
-        self.memory = memory[:]
+        self.memory = memory[:] + [0] * 1000
         self.inputs = inputs
         self.output = None
         self.halted = False
         self.relative_base = 0
 
     def get_parameter_value(self, param, mode):
-        if mode == 1:
+        if mode == 0:
+            # Positional
+            return self.memory[param]
+        elif mode == 1:
+            # Immediate
             return param
         elif mode == 2:
+            # Relative
             return self.memory[param + self.relative_base]
-
-        return self.memory[param]
+        else:
+            raise ValueError(f'Unknown mode received: {mode}')
 
     def sum(self, value_one, value_two, destination):
         # opcode 1
@@ -54,7 +59,7 @@ class Intcode:
 
     def update_relative_base(self, value):
         # opcode 9
-        self.relative_base = value
+        self.relative_base += value
 
     def execute(self, input_value=None):
         if input_value is not None:
@@ -69,7 +74,9 @@ class Intcode:
                 chunk = self.memory[self.cursor:self.cursor + 4]
                 value_one = self.get_parameter_value(chunk[1], p1mode)
                 value_two = self.get_parameter_value(chunk[2], p2mode)
-                destination = chunk[3]
+                destination = (
+                    chunk[3] + self.relative_base if p3mode == 2 else chunk[3]
+                )
 
                 if opcode == 1:
                     self.sum(value_one, value_two, destination)
@@ -84,7 +91,11 @@ class Intcode:
             elif opcode in [3, 4, 9]:
                 chunk = self.memory[self.cursor:self.cursor + 2]
                 if opcode == 3:
-                    if not self.process_input(chunk[1]):
+                    destination = (
+                        chunk[1] + self.relative_base
+                        if p1mode == 2 else chunk[1]
+                    )
+                    if not self.process_input(destination):
                         # Return output if we run out of inputs
                         return self.output
                 elif opcode == 4:
