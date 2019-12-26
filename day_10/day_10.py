@@ -1,5 +1,6 @@
 import math
 import os
+
 from util import ROOT_DIR, read_lines
 
 INPUT_FILE = os.path.join(ROOT_DIR, 'day_10/day_10_input.txt')
@@ -7,6 +8,7 @@ INPUT_FILE = os.path.join(ROOT_DIR, 'day_10/day_10_input.txt')
 
 def get_asteroid_map():
     lines = read_lines(INPUT_FILE)
+    # lines = TEST_INPUT.split('\n')[1:]
     asteroid_map = []
 
     # y is equal to number of lines
@@ -34,7 +36,12 @@ def radian_to_degrees(radian):
 
 def correct_degrees(degrees):
     # Correct degrees to have upwards at 0 instead of 270
-    return round(degrees - 270 % 360, 2)
+    degrees = degrees - 270 % 360
+
+    if degrees < 0:
+        return 360 + degrees
+    else:
+        return degrees
 
 
 def calculate_distance(a, b):
@@ -59,7 +66,7 @@ def find_asteroid(asteroid_map):
         if best_count is None or len(radian_set) > best_count:
             best_count = len(radian_set)
             best_asteroid = asteroid
-
+    # best_asteroid = (8, 3)  # REMOVE
     return best_asteroid, best_count
 
 
@@ -71,12 +78,17 @@ def get_asteroid_data(asteroid, asteroid_map):
             continue
 
         radian = get_radian_angle(asteroid, target_asteroid)
-        degrees = round(radian_to_degrees(radian), 2)
-        degrees = correct_degrees(degrees) * -1
+        degrees = correct_degrees(radian_to_degrees(radian))
         distance = calculate_distance(asteroid, target_asteroid)
-        asteroid_data[target_asteroid] = {
-            'distance': distance, 'degrees': degrees
-        }
+
+        try:
+            asteroid_data[degrees].append((target_asteroid, distance))
+        except KeyError:
+            asteroid_data[degrees] = [(target_asteroid, distance)]
+
+    # Sort all data by distance
+    for value in asteroid_data.values():
+        value.sort(key=lambda x: x[1])
 
     return asteroid_data
 
@@ -87,41 +99,16 @@ class AsteroidKillerBase:
         self.asteroid_data = asteroid_data
         self.destroyed = []
 
-    @staticmethod
-    def _rotate_laser():
-        degree = 0.0
-        while degree <= 360:
-            yield degree
-            degree = round(degree + 0.01, 2)
-
-    def _target_asteroid(self, laser_position):
-        possible_targets = []
-
-        for asteroid in self.asteroid_data:
-            degrees = self.asteroid_data[asteroid]['degrees']
-            if degrees == laser_position and asteroid not in self.destroyed:
-                possible_targets.append(
-                    (asteroid, self.asteroid_data[asteroid]['distance'])
-                )
-
-        possible_targets.sort(key=lambda t: t[1])  # Sort by distance
-
-        try:
-            target = possible_targets[0]
-            self.destroyed.append(target[0])  # Add position to destroyed list
-            print(f'Destroyed {target} at {laser_position}')
-        except IndexError:
-            pass
-
-    def execute(self, stop_at=200):
-        while len(self.destroyed) < stop_at:
-            print('Laser cycle started')
-            # Start laser rotation
-            for position in self._rotate_laser():
-                if len(self.destroyed) == stop_at:
+    def execute(self):
+        while len(self.destroyed) < 200:
+            # Loop through sorted key, which equals degree
+            for key in sorted(self.asteroid_data.keys()):
+                if len(self.destroyed) == 200:
                     break
 
-                self._target_asteroid(position)
+                self.destroyed.append(
+                    self.asteroid_data[key].pop(0)[0]  # Return just the coords
+                )
 
         return self.destroyed[199]
 
@@ -139,7 +126,7 @@ def solve_part_two():
     best_asteroid, _ = find_asteroid(asteroid_map)
     asteroid_data = get_asteroid_data(best_asteroid, asteroid_map)
     asteroid_killer_base = AsteroidKillerBase(best_asteroid, asteroid_data)
-    asteroid_200 = asteroid_killer_base.execute(stop_at=200)
+    asteroid_200 = asteroid_killer_base.execute()
     result = asteroid_200[0] * 100 + asteroid_200[1]
     print(
         f'The 200th asteroid is located at {asteroid_200}. The result is {result}'
