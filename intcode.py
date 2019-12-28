@@ -62,10 +62,12 @@ class Intcode:
         self.relative_base += value
 
     def execute(self, input_value=None):
+        self.output = None
+
         if input_value is not None:
             self.inputs.append(input_value)
 
-        while self.cursor < len(self.memory) and not self.halted:
+        while not self.halted and self.output is None:
             opcode, p1mode, p2mode, p3mode = process_instruction(
                 self.memory[self.cursor]
             )
@@ -101,6 +103,8 @@ class Intcode:
                 elif opcode == 4:
                     value = self.get_parameter_value(chunk[1], p1mode)
                     self.process_output(value)
+                    self.cursor += 2
+                    return self.output
                 elif opcode == 9:
                     value = self.get_parameter_value(chunk[1], p1mode)
                     self.update_relative_base(value)
