@@ -1,8 +1,9 @@
 class Intcode:
-    def __init__(self, memory, inputs):
+    def __init__(self, memory, inputs, input_lambda=None):
         self.cursor = 0
         self.memory = memory[:] + [0] * 1000
         self.inputs = inputs
+        self.input_lambda = input_lambda
         self.output = None
         self.halted = False
         self.relative_base = 0
@@ -31,7 +32,10 @@ class Intcode:
     def process_input(self, param):
         # opcode 3
         try:
-            self.memory[param] = self.inputs.pop(0)
+            next_input = (
+                self.inputs.pop(0) if self.inputs else self.input_lambda()
+            )
+            self.memory[param] = next_input
             return True
         except IndexError:
             # Allow for early exit by returning False when input list is empty
