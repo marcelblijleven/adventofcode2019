@@ -1,5 +1,5 @@
 class Intcode:
-    def __init__(self, memory, inputs, input_lambda=None):
+    def __init__(self, memory, inputs=[], input_lambda=None):
         self.cursor = 0
         self.memory = memory[:] + [0] * 1000
         self.inputs = inputs
